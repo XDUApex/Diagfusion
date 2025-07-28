@@ -1,0 +1,82 @@
+dataset: 'gaia'
+base_path: '.'
+demo_path: 'data/gaia/demo'
+label: 'demo_1100'
+
+parse:  # 数据预处理部分，是历史和在线故障都需要进行的预处理部分
+  nodes: 'dbservice1 dbservice2 logservice1 logservice2 mobservice1 mobservice2 redisservice1 redisservice2 webservice1 webservice2'
+  parse_dir: 'parse'
+  metric_path: 'anomalies/demo_metric.json'  #异常检测后的metric文件路径
+  trace_path: 'anomalies/demo_trace.json' #调用链异常检测后的trace文件路径
+  log_path: 'anomalies/stratification_logs.npy' 
+  save_path: 'parse/stratification_texts.pkl' #统一格式后的文本文件路径
+
+fasttext: # 对于历史故障的特征学习
+  supervised: True
+  dataset: 'gaia'
+  nodes: 'dbservice1 dbservice2 logservice1 logservice2 mobservice1 mobservice2 redisservice1 redisservice2 webservice1 webservice2'
+  text_path: 'parse/stratification_texts.pkl' # 输入统一后的文本文件路径
+  fasttext_dir: 'fasttext'
+  temp_dir: 'fasttext/temp'
+  train_path: 'fasttext/temp/train.txt'
+  test_path: 'fasttext/temp/test.txt'
+  train_da_path: 'fasttext/temp/train_da.txt'
+  save_path: 'fasttext/event_embedding.pkl' # FastText事件嵌入结果保存路径
+  vector_dim: 100
+  sample_count: 1000
+  edit_count: 1
+  da_method: 'w2v'
+  minCount: 1
+  epoch: 5
+
+sentence_embedding: # 历史故障的序列编码
+  K_S: 10 
+  train_path: 'fasttext/temp/train.txt'
+  test_path: 'fasttext/temp/test.txt'
+  source_path: 'fasttext/event_embedding.pkl'
+  save_path: 'sentence_embedding.pkl'  # 用于后续新故障来的时候进行在线的推理
+
+he_dgl: # 异构图神经网络部分
+  nodes: 'dbservice1 dbservice2 logservice1 logservice2 mobservice1 mobservice2 redisservice1 redisservice2 webservice1 webservice2'  # 图中的节点定义
+  dataset: 'gaia'
+  heterogeneous: False # 图的类型配置，True表示异构图，False表示同构图
+  data_dir: ''
+  save_dir: 'dgl/stratification_10' # 保存模型的路径
+  Xs: 'sentence_embedding.pkl'  # 节点特征向量（来自多模态特征提取）
+  run_table: 'gaia_resplit.csv' # 'demo_train160.csv'
+  aug: False
+  aug_size: 0
+  N_S: 5 
+  N_A: 5
+  TOPK_SA: 10
+  # save_model: False # 新故障处理时启用（推理模式）
+  save_model: True  # 历史故障处理时启用（训练模式）
+  epoch: 6000 # 训练的时候的epoch数
+
+  batch_size: 1000 
+#  win_size: 10  #原始的窗口大小为10，这里设置为10，即每个窗口包含10个事件
+  win_size: 50        # 增大窗口大小，确保更长时间的稳定性
+#  win_threshold: 0.0001 #原始的阈值设置为0.0001，这里设置为0.0001，即事件发生的概率阈值
+  win_threshold: 0.00001  # 降低阈值，要求更严格的收敛标准
+  lr: 0.001
+  weight_decay: 0.0001
+  seed: 2
+  text_path: 'parse/stratification_texts.pkl'
+
+#source_data_path: 'data/gaia/source_data'
+#event_path: 'data/gaia/events'
+#feature_path: 'data/gaia/feature'
+#result_path: 'result/gaia/analysis'
+#exploration_path: 'exploration/gaia/pics'
+#trace_path: 'data/gaia/demo/trace'
+#log_path: 'data/gaia/demo/log'
+#metric_path: 'data/gaia/demo/metric'
+#feature_list:
+#  0: TFIDF_X
+#  1: BOW_X
+#  2: NGram_X
+#  3: TFIDF_BOW_NGram_X
+#  4: TFIDF_BOW_X
+#  5: TFIDF_NGram_X,
+#  6: BOW_NGram_X
+#feature: feature_list[0]
